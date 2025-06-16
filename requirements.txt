@@ -2,6 +2,6 @@
 streamlit
 openai
 python-dotenv
-supabase-py
+supabase
 audio-recorder-streamlit
 pandas
