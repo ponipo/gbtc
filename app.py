@@ -127,13 +127,32 @@ def main_app_view():
         def get_text_log(self) -> str:
             return "\n".join(f"{m['role']}: {m['content']}" for m in self.input_message_list)
 
-    def initialize_chatbot(client, system_prompt):
-        if "chatbot" not in st.session_state or st.session_state.system_prompt != system_prompt:
+    # ★★★ ここからが修正箇所(1/2) ★★★
+    def initialize_chatbot(client, system_prompt, model_name):
+        # Chatbotがまだ存在しない場合、または設定が変更された場合に再生成する
+        should_recreate = False
+        if "chatbot" not in st.session_state:
+            should_recreate = True
+        else:
+            # 現在のChatbotの設定と比較して、変更があるかチェック
+            current_bot = st.session_state.chatbot
+            if current_bot.model_name != model_name or current_bot.system_message['content'] != system_prompt:
+                should_recreate = True
+                st.warning("設定が変更されたため、会話履歴をリセットしてChatbotを再起動します。")
+
+        if should_recreate:
+            # 新しい設定でChatbotインスタンスを作成
             st.session_state.chatbot = ChatBot(
-                client, model_name=selected_model_name, system_message=system_prompt, max_input_history=5
+                client=client,
+                model_name=model_name,
+                system_message=system_prompt,
+                max_input_history=5
             )
-            st.session_state.system_prompt = system_prompt
+            # ログ用の音声ファイルリストもリセットする
+            st.session_state.audio_files = []
+
         return st.session_state.chatbot
+    # ★★★ ここまでが修正箇所(1/2) ★★★
 
     with st.expander("📋 議事録入力 → プロンプト生成", expanded=True):
         minutes_text = st.text_area("議事録入力", placeholder="ここに議事録を貼り付けてください", height=200)
@@ -190,7 +209,9 @@ def main_app_view():
     st.session_state.system_prompt = system_prompt_input
 
     if st.session_state.system_prompt.strip():
-        chatbot     = initialize_chatbot(client, st.session_state.system_prompt)
+        # ★★★ ここからが修正箇所(2/2) ★★★
+        chatbot = initialize_chatbot(client, st.session_state.system_prompt, selected_model_name)
+        # ★★★ ここまでが修正箇所(2/2) ★★★
         audio_bytes = audio_recorder(key="audio_recorder_main")
         if audio_bytes:
             st.audio(audio_bytes, format="audio/wav")
